@@ -26,7 +26,7 @@ jobs:
       # Paso 3: Construir la imagen localmente usando tu Dockerfile
       - name: Build Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:cursos .
+          docker build --no-cache -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:cursos .
 
       # Paso 4: Subir la imagen empaquetada a DockerHub
       - name: Push Docker Image
