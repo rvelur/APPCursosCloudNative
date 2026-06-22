@@ -47,7 +47,7 @@ jobs:
           # Autenticarse en DockerHub dentro de la máquina de AWS
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
           
-          # Bajar tu imagen limpia con base de datos H2
+          # Bajar tu imagen limpia
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-app:cursos
           
           # Limpiar versiones viejas si existieran
