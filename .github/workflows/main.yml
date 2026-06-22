@@ -12,50 +12,48 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Paso 1: Checkout del repositorio
+      # Paso 1: Obtener el código fuente
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      # Paso 2: Autenticar en DockerHub
+      # Paso 2: Conectarse a DockerHub
       - name: Log in to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Paso 3: Construir la imagen de Docker
+      # Paso 3: Construir la imagen localmente usando tu Dockerfile
       - name: Build Docker Image
         run: |
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:cursos .
 
-      # Paso 4: Hacer push de la imagen a DockerHub
+      # Paso 4: Subir la imagen empaquetada a DockerHub
       - name: Push Docker Image
         run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:cursos
 
-      # Paso 5: Configurar credenciales de AWS usando la versión v4 (Resuelve problemas de token)
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
-
-      # Paso 5.5: Agregar clave privada SSH
+      # Paso 5: Registrar la llave .pem para abrir el canal de comunicación
       - name: Add SSH Key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      # Paso 6: Conectarse a EC2 y desplegar
+      # Paso 6: Entrar a la instancia EC2 y levantar tu servidor
       - name: SSH commands to deploy
         run: |
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.USER_SERVER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          # Autenticarse en DockerHub dentro de la máquina de AWS
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
+          
+          # Bajar tu imagen limpia con base de datos H2
           docker pull ${{ secrets.DOCKERHUB_USERNAME }}/my-app:cursos
+          
+          # Limpiar versiones viejas si existieran
           docker stop my-app || true
           docker rm my-app || true
+          
+          # Encender tu contenedor en el puerto 8080
           docker run -d --name my-app -p 8080:8080 ${{ secrets.DOCKERHUB_USERNAME }}/my-app:cursos
           EOF
