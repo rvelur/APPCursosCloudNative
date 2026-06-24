@@ -1,0 +1,12 @@
+=== RESUMEN DE INSCRIPCIÓN VIRTUAL ===
+Número de Inscripción: 23
+ID del Estudiante: 202609
+Fecha del Sistema: 2026-06-24T15:08:18.928778800
+--------------------------------------
+Cursos Inscritos:
+- Cloud Native Architecture ($75000.0)
+- Curso AWS con Github Actions ($45000.0)
+--------------------------------------
+TOTAL PAGADO: $120000.0
+
+Archivo corregido

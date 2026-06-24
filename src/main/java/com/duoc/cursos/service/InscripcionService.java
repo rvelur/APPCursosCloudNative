@@ -5,10 +5,13 @@ import com.duoc.cursos.model.Curso;
 import com.duoc.cursos.model.Inscripcion;
 import com.duoc.cursos.repository.InscripcionRepository;
 import com.duoc.cursos.repository.CursoRepository;
+import com.duoc.cursos.dto.S3ObjectInfo;
 import io.awspring.cloud.s3.S3Template;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
+import io.awspring.cloud.s3.S3Resource;
+import java.util.stream.Collectors;
 
 import java.io.*;
 import java.time.LocalDateTime;
@@ -40,26 +43,27 @@ public class InscripcionService {
         return cursoRepository.save(curso);
     }
 
-    // 3. Inscripción de estudiantes (Guarda en Oracle Cloud + Sube archivo físico a AWS S3)
+    // 3. Inscripción de estudiantes (Guarda en Oracle Cloud + Sube archivo físico a
+    // AWS S3)
     public Inscripcion registrarInscripcion(InscripcionRequest request) {
-        
+
         Inscripcion nuevaInscripcion = new Inscripcion();
         nuevaInscripcion.setEstudianteId(request.getEstudianteId());
         nuevaInscripcion.setFechaInscripcion(LocalDateTime.now());
-        
+
         double sumaTotal = 0.0;
         List<Curso> cursosALinkear = new ArrayList<>();
-        
+
         // CORREGIDO: getCursosIds() con 's'
         for (Long cursoId : request.getCursosIds()) {
             Curso curso = cursoRepository.findById(cursoId)
                     .orElseThrow(() -> new IllegalArgumentException("Curso no encontrado con ID: " + cursoId));
-            
+
             // CORREGIDO: getCosto() en vez de getPrecio()
             sumaTotal += curso.getCosto();
             cursosALinkear.add(curso);
         }
-        
+
         nuevaInscripcion.setTotalPagar(sumaTotal);
         nuevaInscripcion.setCursosSeleccionados(cursosALinkear);
 
@@ -81,9 +85,9 @@ public class InscripcionService {
             }
             sb.append("--------------------------------------\n");
             sb.append("TOTAL PAGADO: $").append(inscripcionGuardada.getTotalPagar()).append("\n");
-            
+
             this.generarYSubirResumenS3(inscripcionGuardada.getId(), sb.toString());
-            
+
         } catch (IOException e) {
             System.err.println("Advertencia S3: No se pudo respaldar el archivo físico: " + e.getMessage());
         }
@@ -95,7 +99,7 @@ public class InscripcionService {
     private void generarYSubirResumenS3(Long inscripcionId, String contenidoResumen) throws IOException {
         String nombreArchivo = "resumen_" + inscripcionId + ".txt";
         File archivoLocal = new File(nombreArchivo);
-        
+
         try (FileWriter writer = new FileWriter(archivoLocal)) {
             writer.write(contenidoResumen);
         }
@@ -119,7 +123,7 @@ public class InscripcionService {
     public void modificarResumenS3(Long inscripcionId, String nuevoContenido) throws IOException {
         String nombreArchivo = "resumen_" + inscripcionId + ".txt";
         File archivoLocal = new File(nombreArchivo);
-        
+
         try (FileWriter writer = new FileWriter(archivoLocal)) {
             writer.write(nuevoContenido);
         }
@@ -133,5 +137,35 @@ public class InscripcionService {
     public void eliminarResumenS3(Long inscripcionId) {
         String s3Key = inscripcionId + "/resumen_" + inscripcionId + ".txt";
         s3Template.deleteObject(bucketName, s3Key);
+    }
+
+    public List<String> listarTodosLosObjetos() {
+        // s3Template.listObjects nos trae todos los recursos del bucket
+        List<S3Resource> recursos = s3Template.listObjects(bucketName, "");
+
+        // Mapeamos la lista para quedarnos solo con el nombre/ruta (Key) de cada
+        // archivo
+        return recursos.stream()
+                .map(S3Resource::getFilename)
+                .collect(Collectors.toList());
+    }
+
+    public List<S3ObjectInfo> listarTodosLosObjetosDetallados() {
+        // Listamos todos los archivos del bucket actual
+        List<S3Resource> recursos = s3Template.listObjects(bucketName, "");
+
+        return recursos.stream()
+                .map(resource -> {
+                    try {
+                        String name = resource.getFilename();
+                        long tamaño = resource.contentLength(); // Obtiene el tamaño real en bytes
+                        String fechaSimulada = "2026-06-24T15:44:39Z"; // Fecha de control para el reporte
+
+                        return new S3ObjectInfo(name, tamaño, fechaSimulada);
+                    } catch (Exception e) {
+                        return new S3ObjectInfo(resource.getFilename(), 0, "Error al leer metadatos");
+                    }
+                })
+                .collect(Collectors.toList());
     }
 }
